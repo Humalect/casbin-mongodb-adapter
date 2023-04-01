@@ -16,6 +16,7 @@ interface MongoAdapterOptions {
   readonly collection: string;
   readonly filtered?: boolean;
   readonly debug?: boolean;
+  readonly mongoClient?: MongoClient;
 }
 
 const logger = logdown('CasbinMongoAdapter');
@@ -35,13 +36,16 @@ export class MongoAdapter implements FilteredAdapter, BatchAdapter {
       collection = 'casbin',
       database = 'casbindb',
       filtered = false,
-      debug = false
+      debug = false,
+      mongoClient
     } = adapterOption;
 
     logger.state.isEnabled = debug;
 
-    const a = new MongoAdapter(uri, database, collection, filtered, option);
-    await a.open();
+    const a = new MongoAdapter(uri, database, collection, filtered, option, mongoClient);
+    if (!mongoClient) {
+      await a.open();
+    }
     return a;
   }
 
@@ -56,10 +60,11 @@ export class MongoAdapter implements FilteredAdapter, BatchAdapter {
     database: string,
     collection: string,
     filtered: boolean,
-    option?: MongoClientOptions
+    option?: MongoClientOptions,
+    mongoClient?: MongoClient
   ) {
-    if (!uri) {
-      throw new Error('you must provide mongo URI to connect to!');
+    if (!uri && !mongoClient) {
+      throw new Error('you must either provide mongo URI or mongoClient to connect to!');
     }
 
     // Cache the mongo uri and db name for later use
@@ -69,7 +74,7 @@ export class MongoAdapter implements FilteredAdapter, BatchAdapter {
 
     try {
       // Create a new MongoClient
-      this.mongoClient = new MongoClient(uri, option);
+      this.mongoClient = mongoClient || new MongoClient(uri, option);
     } catch (error: any) {
       throw new Error(error.message);
     }
